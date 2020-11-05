@@ -1,0 +1,9 @@
+service: cron
+runtime: python37
+instance_class: F4
+handlers:
+- url: /raw
+  script: auto
+
+- url: /translate
+  script: auto
