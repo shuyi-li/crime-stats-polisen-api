@@ -2,6 +2,30 @@
 .DS_store
 .git
 .idea
+# ignore data files
+*.pkl
+*.csv
+*.pickle
+
+# Ignore all text figures
+*.png
+*.jpg
+
+
+# Ignore reports
+reports
+*.html
+*.ppt
+*.pptx
+*.doc
+*.docx
+
+# ignore undefined notebooks
+Untitled.ipynb
+
+# Ignore ipynb catche folder
+__pycache__
+.ipynb_checkpoints
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
