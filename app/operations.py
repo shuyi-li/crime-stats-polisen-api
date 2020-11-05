@@ -166,6 +166,7 @@ def operation_refine_city_data_appendbq(project_id:str, destination_tableid:str,
     newly_arrived['location_details'] = [extract_location_details(detail, district=district) for detail in details_list]
     newly_arrived['location_details'] = newly_arrived['location_details'] + ' ' + newly_arrived['location_name'] + ' ' + 'Sweden'
     pandas_gbq.to_gbq(newly_arrived, f'crime_statistics_polisenapi.{destination_tableid}', project_id=project_id, if_exists='append')
+    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
 
 
 def update_tables(project_id: str, new_source_tableid:str='raw'
@@ -185,9 +186,8 @@ def update_tables(project_id: str, new_source_tableid:str='raw'
     )
     newly_arrived = filter_newly_arrived(raw, hist)
     if newly_arrived is not None:
-        newly_arrived = operation_func(project_id=project_id, destination_tableid=destination_tableid
+        operation_func(project_id=project_id, destination_tableid=destination_tableid
                                        , newly_arrived=newly_arrived)
-        print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
     else:
         print(f'0 rows added to table: crime_statistics_polisenapi.{destination_tableid}')
 
@@ -201,9 +201,12 @@ def operation_translate_city_data_appendbq(project_id:str, destination_tableid:s
         df['details'] = [translator.translate(x, src='sv' , dest='en').text if x is not None else 'None' for x in df['details'] ]
         pandas_gbq.to_gbq(df, f'crime_statistics_polisenapi.{destination_tableid}',
                           project_id=project_id, if_exists='append')
+        print(f'{df.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
         sleep_time=120
         print(f"sleeping {sleep_time}")
         sleep(sleep_time)
+    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
+
 
 def update_table_cities(project_id: str):
     update_tables(project_id=project_id, new_source_tableid='raw'
@@ -214,18 +217,6 @@ def update_table_cities_en(project_id: str):
     update_tables(project_id=project_id, new_source_tableid='cities_refined'
                     , destination_tableid='cities_refined_en'
                     , operation_func=operation_translate_city_data_appendbq)
-
-def main():
-    bq_client = bigquery.Client()
-    project_id = bq_client.project
-    # set_pandas_gbq_credentials()
-    update_table_raw(project_id=project_id, dataset_id='crime_statistics_polisenapi', table_id='raw')
-    update_table_cities(project_id)
-
-def translate_ops():
-    bq_client = bigquery.Client()
-    project_id = bq_client.project
-    update_table_cities_en(project_id)
 
 
 def get_dim_district(project_id):
@@ -262,3 +253,17 @@ def seed_dim_district(project_id):
     upload_initial(dim_district, project_id=project_id,
                    dataset_id='crime_statistics_polisenapi',
                    table_id='dim_district')
+
+
+def main():
+    bq_client = bigquery.Client()
+    project_id = bq_client.project
+    # set_pandas_gbq_credentials()
+    update_table_raw(project_id=project_id, dataset_id='crime_statistics_polisenapi', table_id='raw')
+    update_table_cities(project_id)
+
+def translate_ops():
+    bq_client = bigquery.Client()
+    project_id = bq_client.project
+    update_table_cities_en(project_id)
+

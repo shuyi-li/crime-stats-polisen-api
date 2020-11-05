@@ -6,7 +6,7 @@ from operations import *
 # app=FastAPI() #fastapi alternative
 app=Flask(__name__)
 @app.route("/raw")
-def root():
+def run_main():
     try:
         main()
         return({"status":"success!"})
@@ -15,7 +15,7 @@ def root():
 
 app=Flask(__name__)
 @app.route("/translate")
-def root():
+def run_translate():
     try:
         translate_ops()
         return({"status":"success!"})
@@ -28,4 +28,4 @@ if __name__=='__main__':
     #     print({"status":"success!"})
     # except:
     #     print({"status":"failure!"})
-    main()
+    translate_ops()
