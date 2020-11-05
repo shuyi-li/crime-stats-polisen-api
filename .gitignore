@@ -1,3 +1,8 @@
+# ignore system files and git related files
+.DS_store
+.git
+.idea
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
