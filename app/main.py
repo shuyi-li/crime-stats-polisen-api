@@ -5,6 +5,7 @@ from operations import *
 
 # app=FastAPI() #fastapi alternative
 app=Flask(__name__)
+
 @app.route("/raw")
 def run_main():
     try:
@@ -13,7 +14,6 @@ def run_main():
     except:
         return({"status":"failure!"})
 
-app=Flask(__name__)
 @app.route("/translate")
 def run_translate():
     try:
@@ -23,9 +23,11 @@ def run_translate():
         return({"status":"failure!"})
 
 if __name__=='__main__':
-    # try:
-    #     main()
-    #     print({"status":"success!"})
-    # except:
-    #     print({"status":"failure!"})
-    translate_ops()
+    import sys
+    if len(sys.argv)>1:
+        if sys.argv[1]=='translate':
+            translate_ops()
+        else:
+            print(f"Option {sys.argv[1]} doesn't exist. Enter option 'translate' if applicable." )
+    else:
+        main()

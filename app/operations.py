@@ -193,9 +193,9 @@ def update_tables(project_id: str, new_source_tableid:str='raw'
 
 def operation_translate_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived:pd.DataFrame, *args, **kwargs):
     from googletrans import Translator
-    batch_size = 20
+    batch_size = 100
     n_batch = len(newly_arrived) // batch_size
-    dfs = np.array_split(newly_arrived, n_batch)
+    dfs = np.array_split(newly_arrived, n_batch+1)
     for df in dfs:
         translator = Translator()
         df['details'] = [translator.translate(x, src='sv' , dest='en').text if x is not None else 'None' for x in df['details'] ]
@@ -205,7 +205,7 @@ def operation_translate_city_data_appendbq(project_id:str, destination_tableid:s
         sleep_time=120
         print(f"sleeping {sleep_time}")
         sleep(sleep_time)
-    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
+    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')git
 
 
 def update_table_cities(project_id: str):
