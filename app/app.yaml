@@ -5,5 +5,5 @@ handlers:
 - url: /raw
   script: auto
 
-- url: /translate
-  script: auto
+#- url: /translate
+#  script: auto

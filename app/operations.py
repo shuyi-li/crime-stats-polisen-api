@@ -5,11 +5,13 @@ import pandas as pd
 import pandas_gbq
 import numpy as np
 import re
+import six
 from google.oauth2 import service_account
 from google.cloud import bigquery
 from bs4 import BeautifulSoup
 from time import sleep
 from typing import List
+from google.cloud import translate_v2 as translate
 
 def set_pandas_gbq_credentials():
     credentials = service_account.Credentials.from_service_account_file(os.environ['GCP_SECRETPATH'] )
@@ -111,7 +113,6 @@ def filter_newly_arrived(new_data:pd.DataFrame, history:pd.DataFrame,
         idx_cols:
 
     Returns:
-
     """
 
     if len(new_data) >= 1:
@@ -191,18 +192,36 @@ def update_tables(project_id: str, new_source_tableid:str='raw'
     else:
         print(f'0 rows added to table: crime_statistics_polisenapi.{destination_tableid}')
 
-def operation_translate_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived:pd.DataFrame, *args, **kwargs):
+
+def decode_text(text):
+    if isinstance(text, six.binary_type):
+        text = text.decode("utf-8")
+    return text
+
+def translate_text_googleapis(text):
+    translate_client = translate.Client()
+    result = translate_client.translate(text, source_language='sv',  target_language='en')
+    return result["translatedText"]
+
+def translate_text_pytrans(text_arr):
     from googletrans import Translator
+    translator = Translator()
+    return translator.translate(text_arr, src='sv', dest='en').text
+
+
+def operation_translate_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived:pd.DataFrame, *args, **kwargs):
     batch_size = 100
     n_batch = len(newly_arrived) // batch_size
     dfs = np.array_split(newly_arrived, n_batch+1)
     for df in dfs:
-        translator = Translator()
-        df['details'] = [translator.translate(x, src='sv' , dest='en').text if x is not None else 'None' for x in df['details'] ]
+        translate_client = translate.Client()
+        df['details'] = [decode_text(x) for x in df['details']]
+        df['details'] = [translate_client.translate(x, source_language='sv',  target_language='en')["translatedText"]
+                                if x is not None else 'None' for x in df['details']]
         pandas_gbq.to_gbq(df, f'crime_statistics_polisenapi.{destination_tableid}',
                           project_id=project_id, if_exists='append')
         print(f'{df.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
-        sleep_time=120
+        sleep_time=1
         print(f"sleeping {sleep_time}")
         sleep(sleep_time)
     print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
@@ -261,6 +280,9 @@ def main():
     # set_pandas_gbq_credentials()
     update_table_raw(project_id=project_id, dataset_id='crime_statistics_polisenapi', table_id='raw')
     update_table_cities(project_id)
+    # translate
+    update_table_cities_en(project_id)
+
 
 def translate_ops():
     bq_client = bigquery.Client()
