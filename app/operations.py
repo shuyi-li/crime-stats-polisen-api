@@ -205,7 +205,7 @@ def operation_translate_city_data_appendbq(project_id:str, destination_tableid:s
         sleep_time=120
         print(f"sleeping {sleep_time}")
         sleep(sleep_time)
-    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')git
+    print(f'{newly_arrived.shape[0]} rows added to table: crime_statistics_polisenapi.{destination_tableid}')
 
 
 def update_table_cities(project_id: str):
