@@ -221,6 +221,11 @@ def operation_translate_city_data_appendbq(project_id:str, destination_tableid:s
         df['details'] = [decode_text(x) for x in df['details']]
         df['details'] = [translate_client.translate(x, source_language='sv',  target_language='en')["translatedText"]
                                 if x is not None else 'None' for x in df['details']]
+        type_keys = list(df['type'].unique())
+        type_values_en = [translate_client.translate(x, source_language='sv', target_language='en')["translatedText"]
+                          if x is not None else 'None' for x in type_keys]
+        type_mapping = dict(zip(type_keys, type_values_en))
+        df['type'] = df['type'].map(type_mapping)
         pandas_gbq.to_gbq(df, f"{config['dataset_id']}.{destination_tableid}",
                           project_id=project_id, if_exists='append')
         print(f"{df.shape[0]} rows added to table: {config['dataset_id']}.{destination_tableid}")
