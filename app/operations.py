@@ -6,6 +6,7 @@ import pandas_gbq
 import numpy as np
 import re
 import six
+import json
 from config import config_eu, config_us
 from google.oauth2 import service_account
 from google.cloud import bigquery
@@ -13,6 +14,7 @@ from bs4 import BeautifulSoup
 from time import sleep
 from typing import List
 from google.cloud import translate_v2 as translate
+
 # choose config
 config=config_eu
 
@@ -67,7 +69,7 @@ def scrape_url(url):
 def extract_location_details(detail, district):
     detail = re.sub('[.,;!:]', ' ', str(detail))
     locwords = []
-    loc_keywords = ['gata', 'vägen', 'torg', 'gärd', 'plan', 'leden', 'park']
+    loc_keywords = ['gata', 'vägen', 'torg', 'gärd', 'plan', 'leden', 'park' ]
     locwords.append(extract_keywords(detail, keywords = loc_keywords))
     for dist in district['district'].values:
         if dist.lower() in detail.lower():
@@ -77,7 +79,6 @@ def extract_location_details(detail, district):
     else:
         locword = ''
     return locword
-
 
 def extract_keywords(detail, keywords):
     detail = re.sub('[.,;!:]', ' ', str(detail))
@@ -159,10 +160,10 @@ def seed_table_cities(project_id:str):
                    table_id='cities_refined')
 
 
-def operation_refine_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived: pd.DataFrame, *args, **kwargs):
+def operation_refine_city_data_appendbq_old(project_id:str, destination_tableid:str, newly_arrived: pd.DataFrame, *args, **kwargs):
     district = pandas_gbq.read_gbq(
             f"""
-            SELECT district
+            SELECT distinct district
             FROM `{project_id}.{config['dataset_id']}.dim_district`
             """, project_id=project_id)
 
@@ -170,6 +171,57 @@ def operation_refine_city_data_appendbq(project_id:str, destination_tableid:str,
     newly_arrived['location_details'] = [extract_location_details(detail, district=district) for detail in details_list]
     newly_arrived['location_details'] = newly_arrived['location_details'] + ' ' + newly_arrived['location_name'] + ' ' + 'Sweden'
     pandas_gbq.to_gbq(newly_arrived, f"{config['dataset_id']}.{destination_tableid}", project_id=project_id, if_exists='append')
+    print(f"{newly_arrived.shape[0]} rows added to table: {config['dataset_id']}.{destination_tableid}")
+
+
+def xxxoperation_refine_city_data_appendbq_old(project_id:str, destination_tableid:str, newly_arrived: pd.DataFrame, *args, **kwargs):
+    district = pandas_gbq.read_gbq(
+            f"""
+            SELECT distinct district
+            FROM `{project_id}.{config['dataset_id']}.dim_district`
+            """, project_id=project_id)
+
+    details_list = newly_arrived['details'] + ' ' + newly_arrived['summary'] + ' ' + newly_arrived['name']
+    newly_arrived['location_details'] = [extract_location_details(detail, district=district) for detail in details_list]
+    newly_arrived['location_details'] = newly_arrived['location_details'] + ' ' + newly_arrived['location_name'] + ' ' + 'Sweden'
+    pandas_gbq.to_gbq(newly_arrived, f"{config['dataset_id']}.{destination_tableid}", project_id=project_id, if_exists='append')
+    print(f"{newly_arrived.shape[0]} rows added to table: {config['dataset_id']}.{destination_tableid}")
+
+
+def osm_api_url(search_term):
+    return f"https://nominatim.openstreetmap.org/search/405 {search_term}?format=json&limit=1"
+
+def get_osm_coord(row):
+    result = requests.get(osm_api_url(row['location_details'])).text
+    r_js=json.loads(result)
+    if len(r_js)>0:
+        r_js=r_js[0]
+        return {**row, 'osm_lon':float(r_js['lon']), 'osm_lat':float(r_js['lat'])}
+    else:
+        return {**row, 'osm_lon':row['gps_lon'], 'osm_lat':row['gps_lat']}
+
+def operation_refine_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived: pd.DataFrame, *args, **kwargs):
+    district = pandas_gbq.read_gbq(
+        f"""
+        SELECT * FROM `{project_id}.{config['dataset_id']}.dim_districts_hemnet`
+        """, project_id=project_id)
+
+    print(newly_arrived.shape)
+    newly_arrived_list=[]
+    for city in newly_arrived.location_name.unique():
+        newly_arrived_i=newly_arrived[newly_arrived['location_name']==city].copy()
+        details_list = newly_arrived_i['details']+' '+newly_arrived_i['summary']+' '+ newly_arrived_i['name']
+        newly_arrived_i['location_details'] = [extract_location_details(detail, district=district[district['city']==city]) for detail in details_list]
+        newly_arrived_i['location_details'] = newly_arrived_i['location_details'] +' ' +newly_arrived_i['location_name']+' ' +'Sweden'
+        newly_arrived_list.append(newly_arrived_i)
+    newly_arrived=pd.concat(newly_arrived_list)
+    # get osm coordinates
+    rows=[]
+    for _, row in newly_arrived.iterrows():
+        rows.append(get_osm_coord(row.copy()))
+    newly_arrived=pd.DataFrame(rows)
+    pandas_gbq.to_gbq(newly_arrived, f"{config['dataset_id']}.{destination_tableid}", project_id=project_id,
+                      if_exists='append')
     print(f"{newly_arrived.shape[0]} rows added to table: {config['dataset_id']}.{destination_tableid}")
 
 
