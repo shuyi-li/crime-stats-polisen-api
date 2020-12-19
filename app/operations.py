@@ -1,3 +1,6 @@
+#ToDo:
+# translate to eng from requested date= 2020-12-13 17:40:10.947178 UTC to 2020-11-14 20:50:47.142129 UTC
+
 
 from datetime import datetime
 import requests
@@ -106,9 +109,13 @@ def request_api():
     # df['details'] = [scrape_url(url) for url in df['url']]
     return df
 
+def deduplicate(df, unique_id:str='id', sort_idx:str='datetime'):
+    cols=list(df.columns)
+    cols_other=list(set(cols)-set([unique_id]))
+    return df.sort_values(by=sort_idx, ascending=False).groupby([unique_id])[cols_other].first().reset_index()
 
 def filter_newly_arrived(new_data:pd.DataFrame, history:pd.DataFrame,
-                         idx_cols:List[str]=['id', 'location_name', 'datetime'])->pd.DataFrame:
+                         idx_cols:List[str]=['id'])->pd.DataFrame:
     """
     
     Args:
@@ -128,7 +135,8 @@ def filter_newly_arrived(new_data:pd.DataFrame, history:pd.DataFrame,
         idx_add = set(new_data.index) - set(idx_history)
         if len(idx_add) >= 1:
             new_data = new_data.loc[list(idx_add)]
-            return new_data.reset_index()
+            new_data = new_data.reset_index()
+            return deduplicate(new_data)
 
 
 
@@ -192,6 +200,8 @@ def osm_api_url(search_term):
     return f"https://nominatim.openstreetmap.org/search/405 {search_term}?format=json&limit=1"
 
 def get_osm_coord(row):
+    if 'västmanlands' in row['location_name'].lower():
+        return {**row, 'osm_lon':row['gps_lon'], 'osm_lat':row['gps_lat']}
     result = requests.get(osm_api_url(row['location_details'])).text
     r_js=json.loads(result)
     if len(r_js)>0:
@@ -199,6 +209,7 @@ def get_osm_coord(row):
         return {**row, 'osm_lon':float(r_js['lon']), 'osm_lat':float(r_js['lat'])}
     else:
         return {**row, 'osm_lon':row['gps_lon'], 'osm_lat':row['gps_lat']}
+
 
 def operation_refine_city_data_appendbq(project_id:str, destination_tableid:str, newly_arrived: pd.DataFrame, *args, **kwargs):
     district = pandas_gbq.read_gbq(
@@ -333,6 +344,18 @@ def seed_dim_district(project_id):
                    dataset_id=config['dataset_id'],
                    table_id='dim_district')
 
+def save_to_gcs(project_id:str):
+    """
+    :param project_id:
+    :return:
+    """
+    df = pandas_gbq.read_gbq(f"""SELECT * FROM `{project_id}.crime_statistics.dashboard` 
+                        """, project_id=project_id)
+    bucket_name='crime-stat-app'
+    file_path=f'gs://{bucket_name}/front/dashboard.parquet'
+    df.to_parquet(file_path)
+    print(f'parquet file saved to {file_path}')
+
 
 def main():
     bq_client = bigquery.Client()
@@ -342,12 +365,15 @@ def main():
     update_table_cities(project_id)
     # translate
     update_table_cities_en(project_id)
-
+    save_to_gcs(project_id)
 
 def translate_ops():
     bq_client = bigquery.Client()
     project_id = bq_client.project
     update_table_cities_en(project_id)
+
+
+
 
 
 
