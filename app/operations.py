@@ -351,6 +351,10 @@ def save_to_gcs(project_id:str):
     """
     df = pandas_gbq.read_gbq(f"""SELECT * FROM `{project_id}.crime_statistics.dashboard` 
                         """, project_id=project_id)
+    df['date_requested'] = pd.to_datetime(df['date_requested']).dt.strftime('%Y-%m-%d %H:%m')
+    df['datetime'] = pd.to_datetime(df['datetime']).dt.strftime('%Y-%m-%d %H:%m')
+    df['date_requested'] = pd.to_datetime(df['date_requested'])
+    df['datetime'] = pd.to_datetime(df['datetime'])
     bucket_name='crime-stat-app'
     file_path=f'gs://{bucket_name}/front/dashboard.parquet'
     df.to_parquet(file_path)
