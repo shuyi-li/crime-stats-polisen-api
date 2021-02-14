@@ -1,7 +1,7 @@
 # crime-stats-polisen-api
 
 Backend ETL codes for this dashboard with updated information of crime/incident reports in Sweden:  
-https://datastudio.google.com/s/vwLWzf2ehrE
+https://datastudio.google.com/s/seBgBzVGTKk
 
 Data source:
 API from Polisen (the swedish police):  
